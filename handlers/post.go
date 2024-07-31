@@ -30,10 +30,10 @@ func ViewPost(c *fiber.Ctx) error {
 
 func ListPosts(c *fiber.Ctx) error {
 	page, limit, category, tags :=
-		c.Params("page"),
-		c.Params("limit"),
-		c.Params("category"),
-		c.Params("tags")
+		c.Query("page"),
+		c.Query("limit"),
+		c.Query("category"),
+		c.Query("tags")
 
 	return c.JSON(fiber.Map{
 		"lists":    []any{},
@@ -67,7 +67,7 @@ func DeleteComment(c *fiber.Ctx) error {
 }
 
 func ViewPostComments(c *fiber.Ctx) error {
-	postId := c.Params("id")
+	postId := c.Params("postId")
 	return c.JSON(fiber.Map{
 		"postId":   postId,
 		"comments": []any{},
