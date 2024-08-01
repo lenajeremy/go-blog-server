@@ -7,7 +7,8 @@ import (
 
 func PostsRouter(r *fiber.Router) {
 	(*r).Post("/", handlers.CreatePost)
-	(*r).Get("/", handlers.ListPosts)
+	(*r).Get("/", handlers.ListPersonalPosts)
+	(*r).Get("/all", handlers.ListPosts)
 
 	(*r).Get("/:id", handlers.ViewPost)
 	(*r).Patch("/:id", handlers.EditPost)

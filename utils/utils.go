@@ -1,7 +1,12 @@
 package utils
 
 import (
+	"blog/database"
+	"blog/models"
 	"encoding/json"
+	"github.com/gofiber/fiber/v2"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 func StructToMap(str any) (data map[string]any, err error) {
@@ -16,7 +21,16 @@ func StructToMap(str any) (data map[string]any, err error) {
 	}
 
 	// convert the jsonByte to a map[string]any
-	json.Unmarshal(jsonByte, &data)
+	err = json.Unmarshal(jsonByte, &data)
+
+	return
+}
+
+func GetUserFromContext(c *fiber.Ctx) (user models.User, err error) {
+	token := c.Locals("user").(*jwt.Token)
+	claims := token.Claims.(jwt.MapClaims)
+	uid, _ := uuid.Parse(claims["id"].(string))
+	err = database.DB.First(&user, uid).Error
 
 	return
 }
