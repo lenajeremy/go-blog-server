@@ -1,17 +1,81 @@
 package handlers
 
 import (
+	"blog/config"
 	"blog/database"
 	"blog/models"
 	"blog/utils"
 	"github.com/gofiber/fiber/v2"
+	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
+	"time"
 )
 
 func Login(c *fiber.Ctx) error {
+	type LoginFV struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	var rBody LoginFV
+	var user models.User
+	db := database.DB
+
+	if err := c.BodyParser(&rBody); err != nil {
+		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{
+			"success": false,
+			"message": "Missing important values",
+			"data":    nil,
+		})
+	}
+
+	if rBody.Password == "" || rBody.Email == "" {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"success": false,
+			"message": "Missing important values",
+			"data":    nil,
+		})
+	}
+
+	if err := db.Where("email = ?", rBody.Email).Find(&user).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"message": err.Error(),
+			"data":    nil,
+		})
+	}
+
+	if ok := verifyPassword(user.Password, rBody.Password); !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid login credentials",
+			"data":    nil,
+		})
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"id":    user.ID,
+		"email": user.Email,
+		"exp":   time.Now().Add(time.Hour * 72).Unix(),
+	})
+
+	t, err := token.SignedString([]byte(config.GetConfig("JWT_SECRET")))
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": err.Error(),
+			"data":    nil,
+		})
+	}
+
 	return c.JSON(fiber.Map{
-		"firstName": "jeremiah",
+		"success": true,
+		"data": map[string]string{
+			"token": t,
+		},
+		"message": "Successfully logged in!",
 	})
 }
 
@@ -111,6 +175,10 @@ func Register(c *fiber.Ctx) error {
 func hashPassword(password string) (string, error) {
 	passByte, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	return string(passByte), err
+}
+
+func verifyPassword(hash, password string) bool {
+	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
 }
 
 func Logout(c *fiber.Ctx) error {
