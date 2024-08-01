@@ -3,6 +3,7 @@ package models
 import "github.com/google/uuid"
 
 type Post struct {
+	BaseModel
 	Title    string    `json:"title" gorm:"title; not null"`
 	SubTitle string    `json:"subtitle" gorm:"subtitle"`
 	Content  string    `json:"content" gorm:"content"`

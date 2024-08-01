@@ -12,13 +12,15 @@ import (
 func main() {
 
 	database.ConnectDB(database.ConnectDBConfig{
-		MakeMigrations: false,
+		MakeMigrations: true,
 	})
 
 	app := fiber.New()
 
 	app.Use(cors.New())
 	app.Use(logger.New())
+
+	app.Static("static", "public")
 
 	routers.SetupRouter(app)
 

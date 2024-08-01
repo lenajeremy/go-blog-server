@@ -44,6 +44,7 @@ func ConnectDB(dbConfig ConnectDBConfig) {
 
 func runMigrations() {
 	err := DB.AutoMigrate(&models.User{}, &models.Profile{}, &models.Comment{}, &models.Post{})
+	log.Println("Successfully created database migrations")
 
 	if err != nil {
 		log.Fatal(err.Error())
