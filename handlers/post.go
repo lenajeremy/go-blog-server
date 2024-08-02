@@ -4,8 +4,10 @@ import (
 	"blog/database"
 	"blog/models"
 	"blog/utils"
+	"errors"
 	"fmt"
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
 	"log"
 )
 
@@ -23,7 +25,7 @@ func CreatePost(c *fiber.Ctx) error {
 	db := database.DB
 
 	if err := c.BodyParser(&rBody); err != nil {
-		c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"success": false,
 			"data":    nil,
 			"error":   err.Error(),
@@ -81,7 +83,7 @@ func ListPosts(c *fiber.Ctx) error {
 	page, limit := c.Query("page"), c.Query("limit")
 	var posts []models.Post
 
-	if err := database.DB.Preload("Comments").Find(&posts).Error; err != nil {
+	if err := database.DB.Preload("Comments").Order("created_at DESC").Find(&posts).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"success": false,
 			"message": err.Error(),
@@ -109,9 +111,9 @@ func ListPersonalPosts(c *fiber.Ctx) error {
 
 	log.Println(user)
 
-	posts := []models.Post{}
+	var posts []models.Post
 
-	if err := database.DB.Preload("Comments").Where("author_id = ?", user.ID).Find(&posts).Error; err != nil {
+	if err := database.DB.Preload("Comments").Order("created_at DESC").Where("author_id = ?", user.ID).Find(&posts).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"success": false,
 			"message": err.Error(),
@@ -129,28 +131,187 @@ func ListPersonalPosts(c *fiber.Ctx) error {
 	})
 }
 func EditPost(c *fiber.Ctx) error {
+	type editFormV struct {
+		Title    string `json:"title"`
+		Subtitle string `json:"subtitle"`
+		Content  string `json:"content"`
+	}
+
+	postId := c.Params("id")
+	var formV editFormV
+	var post models.Post
+	var err error
+	var user models.User
+
+	if err = c.BodyParser(&formV); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"data":    nil,
+			"success": false,
+			"message": err.Error(),
+		})
+	}
+
+	user, err = utils.GetUserFromContext(c)
+
+	if err != nil {
+		log.Panic("This shouldn't happen, user should be logged in")
+	}
+
+	err = database.DB.Where("id = ? and author_id = ?", postId, user.ID).First(&post).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"success": false,
+				"error":   fmt.Sprintf("Blog with id %s does not exist", postId),
+				"data":    nil,
+			})
+		} else {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"success": false,
+				"error":   err.Error(),
+				"data":    nil,
+			})
+		}
+	}
+
+	log.Println(formV)
+
+	if formV.Title != "" {
+		post.Title = formV.Title
+	}
+
+	if formV.Subtitle != "" {
+		post.SubTitle = formV.Subtitle
+	}
+
+	if formV.Content != "" {
+		post.Content = formV.Content
+	}
+
+	err = database.DB.Save(&post).Error
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": err.Error(),
+			"data":    nil,
+		})
+	}
+
 	return c.JSON(fiber.Map{
-		"editing": true,
+		"success": true,
+		"message": "Successfully edited post",
+		"data":    post,
 	})
 }
 
 func DeletePost(c *fiber.Ctx) error {
+	postId := c.Params("id")
+	var post models.Post
+
+	user, err := utils.GetUserFromContext(c)
+	if err != nil {
+		log.Fatal("this should not happen! User should be logged in!")
+	}
+
+	err = database.DB.Where("id = ? and author_id", postId, user.ID).First(&post).Error
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"message": err,
+			"data":    nil,
+		})
+	}
+
+	err = database.DB.Delete(&post).Error
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": err.Error(),
+			"data":    nil,
+		})
+	}
+
 	return c.JSON(fiber.Map{
-		"deleting": true,
+		"success": true,
+		"message": "Successfully deleted post",
+		"data":    post,
 	})
 }
 
 func ViewPost(c *fiber.Ctx) error {
 	id := c.Params("id")
+	var post models.Post
+
+	if err := database.DB.Where("id = ?", id).First(&post).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"message": "Can't find post with ID:" + id,
+			"data":    nil,
+		})
+	}
+
 	return c.JSON(fiber.Map{
-		"viewing": true,
-		"id":      id,
+		"success": true,
+		"message": "returning post",
+		"data":    post,
 	})
 }
 
 func AddComment(c *fiber.Ctx) error {
+	type CommentFV struct {
+		Content string `json:"content"`
+	}
+
+	postId := c.Params("postId")
+	var commFV CommentFV
+	var post models.Post
+	var user models.User
+	var err error
+
+	user, err = utils.GetUserFromContext(c)
+
+	if err != nil {
+		log.Fatal("This should not happen, user should be logged in")
+	}
+
+	if err = c.BodyParser(&commFV); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": err.Error(),
+			"data":    nil,
+		})
+	}
+
+	err = database.DB.Where("id = ?", postId).First(&post).Error
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"message": err.Error(),
+		})
+	}
+
+	comment := models.Comment{
+		Content:         commFV.Content,
+		PostCommentedOn: post.ID,
+		AuthorID:        user.ID,
+	}
+
+	if err = database.DB.Create(comment).Error; err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"message": err.Error(),
+		})
+	}
+
 	return c.JSON(fiber.Map{
-		"adding": true,
+		"success": true,
+		"data":    comment,
+		"message": "Successfully commented on post",
 	})
 }
 
@@ -172,8 +333,23 @@ func DeleteComment(c *fiber.Ctx) error {
 
 func ViewPostComments(c *fiber.Ctx) error {
 	postId := c.Params("postId")
+	comments := make([]models.Comment, 0)
+
+	err := database.DB.Where("post_commented_on = ?", postId).Order("created_at DESC").Find(&comments)
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": err,
+			"data":    nil,
+		})
+	}
+
 	return c.JSON(fiber.Map{
-		"postId":   postId,
-		"comments": []any{},
+		"success": true,
+		"message": "Successfully retrieved comment",
+		"data": fiber.Map{
+			"comments": comments,
+		},
 	})
 }

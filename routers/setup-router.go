@@ -27,12 +27,10 @@ func SetupRouter(app *fiber.App) {
 	apiRoute := app.Group("/api")
 
 	for _, rc := range appRoutes {
-		var pathRouter fiber.Router
+		var pathRouter fiber.Router = apiRoute.Group(rc.Path)
 
 		if rc.RequiresAuth {
-			pathRouter = apiRoute.Group(rc.Path, middleware.Protected())
-		} else {
-			pathRouter = apiRoute.Group(rc.Path)
+			pathRouter.Use(middleware.Protected())
 		}
 
 		rc.RouteSetupFunc(&pathRouter)

@@ -9,6 +9,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
+	"log"
 	"time"
 )
 
@@ -23,12 +24,14 @@ func Login(c *fiber.Ctx) error {
 	db := database.DB
 
 	if err := c.BodyParser(&rBody); err != nil {
-		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"success": false,
 			"message": "Missing important values",
 			"data":    nil,
 		})
 	}
+
+	log.Println(rBody)
 
 	if rBody.Password == "" || rBody.Email == "" {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
