@@ -24,6 +24,9 @@ func SetupRouter(app *fiber.App) {
 		{"/post", PostsRouter, true},
 	}
 
+	//app.Use(cors.New())
+	//app.Use(logger.New())
+
 	apiRoute := app.Group("/api")
 
 	for _, rc := range appRoutes {
