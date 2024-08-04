@@ -3,6 +3,8 @@ package routers
 import (
 	"blog/middleware"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/logger"
 )
 
 // RouteSetupFunc Takes a router for a particular path and assigns the endpoints
@@ -24,8 +26,8 @@ func SetupRouter(app *fiber.App) {
 		{"/post", PostsRouter, true},
 	}
 
-	//app.Use(cors.New())
-	//app.Use(logger.New())
+	app.Use(cors.New())
+	app.Use(logger.New())
 
 	apiRoute := app.Group("/api")
 
