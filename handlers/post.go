@@ -286,6 +286,7 @@ func AddComment(c *fiber.Ctx) error {
 	}
 
 	err = database.DB.Where("id = ?", postId).First(&post).Error
+
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"success": false,
@@ -300,7 +301,7 @@ func AddComment(c *fiber.Ctx) error {
 		AuthorID:        user.ID,
 	}
 
-	if err = database.DB.Create(comment).Error; err != nil {
+	if err = database.DB.Create(&comment).Error; err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
 			"success": false,
 			"data":    nil,
@@ -316,31 +317,61 @@ func AddComment(c *fiber.Ctx) error {
 }
 
 func EditComment(c *fiber.Ctx) error {
-	commentId := c.Params("id")
-	return c.JSON(fiber.Map{
-		"commentId": commentId,
-		"editing":   true,
-	})
+	type commFV struct {
+		Content string `json:"content"`
+	}
+
+	var commentFV commFV
+	commentId := c.Params("commentId")
+	var comment models.Comment
+
+	if err := c.BodyParser(&commentFV); err != nil {
+		return utils.RespondError(c, fiber.StatusUnprocessableEntity, "Unable to process request")
+	}
+
+	err := database.DB.Where("id = ?", commentId).Find(&comment).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return utils.RespondError(c, fiber.StatusNotFound, "Comment not found")
+		} else {
+			return utils.RespondError(c, fiber.StatusNotFound, err.Error())
+		}
+	}
+
+	comment.Content = commentFV.Content
+	if err := database.DB.Save(&comment).Error; err != nil {
+		return utils.RespondError(c, fiber.StatusInternalServerError, "Unable to edit comment")
+	}
+
+	return utils.RespondSuccess(c, "Comment successfully edited", &comment)
 }
 
 func DeleteComment(c *fiber.Ctx) error {
-	commentId := c.Params("id")
-	return c.JSON(fiber.Map{
-		"commentId": commentId,
-		"deleting":  true,
-	})
+	commentId := c.Params("commentId")
+	var comment models.Comment
+
+	if err := database.DB.Delete(&comment, "id = ?", commentId).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return utils.RespondError(c, fiber.StatusNotFound, "Comment not found")
+		} else {
+			return utils.RespondError(c, fiber.StatusNotFound, err.Error())
+		}
+	}
+
+	return utils.RespondSuccess(c, "Comment deleted successfully", &comment)
 }
 
 func ViewPostComments(c *fiber.Ctx) error {
 	postId := c.Params("postId")
-	comments := make([]models.Comment, 0)
+	var comments []models.Comment
 
-	err := database.DB.Where("post_commented_on = ?", postId).Order("created_at DESC").Find(&comments)
+	err := database.DB.Where("post_commented_on = ?", postId).Order("created_at DESC").Find(&comments).Error
 
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"success": false,
-			"message": err,
+			"message": err.Error(),
 			"data":    nil,
 		})
 	}
@@ -350,6 +381,7 @@ func ViewPostComments(c *fiber.Ctx) error {
 		"message": "Successfully retrieved comment",
 		"data": fiber.Map{
 			"comments": comments,
+			"total":    len(comments),
 		},
 	})
 }
