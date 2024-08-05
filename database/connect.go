@@ -17,11 +17,11 @@ func ConnectDB(dbConfig ConnectDBConfig) {
 	config.LoadEnv()
 
 	var (
-		DbName = config.GetConfig("DB_NAME")
-		DbHost = config.GetConfig("DB_HOST")
-		DbPass = config.GetConfig("DB_PASS")
-		DbPort = config.GetConfig("DB_PORT")
-		DbUser = config.GetConfig("DB_USER")
+		DbName = config.GetConfig("PGDATABASE")
+		DbHost = config.GetConfig("PGHOST")
+		DbPass = config.GetConfig("PGPASSWORD")
+		DbPort = config.GetConfig("PGPORT")
+		DbUser = config.GetConfig("PGUSER")
 	)
 
 	var err error

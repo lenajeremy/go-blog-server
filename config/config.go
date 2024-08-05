@@ -6,10 +6,6 @@ import (
 	"os"
 )
 
-func init() {
-
-}
-
 func LoadEnv() {
 	if _, err := os.Stat(".env"); err == nil {
 		if err := godotenv.Load(".env"); err != nil {
@@ -25,3 +21,5 @@ func GetConfig(key string) string {
 
 	return ""
 }
+
+// postgresql://postgres:NYelohjGWNgOPVzmcJFHWfbIYbIwgRTy@viaduct.proxy.rlwy.net:26538/railway
