@@ -15,9 +15,9 @@ func LoadEnv() {
 }
 
 func GetConfig(key string) string {
-	if key, okay := os.LookupEnv(key); okay {
+	if val, okay := os.LookupEnv(key); okay {
 		log.Printf("environment variable `%s` is available", key)
-		return key
+		return val
 	} else {
 		log.Printf("environment variable `%s` is not available", key)
 	}
