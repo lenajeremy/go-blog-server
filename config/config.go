@@ -24,5 +24,3 @@ func GetConfig(key string) string {
 
 	return ""
 }
-
-// postgresql://postgres:NYelohjGWNgOPVzmcJFHWfbIYbIwgRTy@viaduct.proxy.rlwy.net:26538/railway
